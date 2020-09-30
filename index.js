@@ -1,9 +1,13 @@
 const fs = require('fs');
 const request = require('request');
 const xml2js = require('xml2js');
-const rssUrl = 'https://feeds.simplecast.com/wjQvYtdl';
+var rssUrl = '';
+var downloadLocation = './downloads'
+var myArgs = process.argv.slice(2);
+var config = {};
 
 const main = async () => {
+    loadSettings();
     try{
         console.log('Fetching latest Rss...');
         await downloadLatestRss();
@@ -22,13 +26,7 @@ const getPodcast = async (data) => {
         const channel = addChannelHelperMethodsToObject(data);
         const folderPath = createPodcastFolder(channel);
         console.log(`Downloading "${channel.getName()}" to "${folderPath}"`);
-        downloadAllEpisodes(folderPath, channel.item, (ep) => {
-            const epName = ep.title[0];
-            const epNumber = ep['itunes:episode'] ? ep['itunes:episode'][0] : -1;
-            const splitName = epName.split(':')[1];
-            if(!splitName) return false;
-            return `${epNumber}-${splitName.trim()}`;
-        });
+        downloadAllEpisodes(folderPath, channel.item, config.renameMethod, config.doRename);
         res();
     });
 }
@@ -36,7 +34,7 @@ const getPodcast = async (data) => {
 const createPodcastFolder = (channelObject) => {
     const channelName = channelObject.getName();
     const channelAuthorName = channelObject.getAuthor();
-    const podcastFolderPath = `./downloads/${channelAuthorName}/${channelName}`;
+    const podcastFolderPath = `${downloadLocation}/${channelAuthorName}/${channelName}`;
     if(!fs.existsSync(channelName)){
         fs.mkdirSync(podcastFolderPath, {recursive: true});
     }
@@ -54,14 +52,14 @@ const addChannelHelperMethodsToObject = (obj) => {
     return returnObj;
 }
 
-const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenameCallback) => {
+const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenameCallback, doRename=true) => {
     for(let i = 0; i < episodesArray.length; i -=- 1){
         const ep = episodesArray[i];
         const epEnclosure = ep.enclosure[0];
         const epUrl = epEnclosure['$'].url;
         const epName = ep.title[0];
         const epNumber = ep['itunes:episode'] ? ep['itunes:episode'][0] : -1;
-        const epFormattedName = typeof episodeRenameCallback === 'function' ? episodeRenameCallback(ep) : epName;
+        const epFormattedName = (typeof episodeRenameCallback === 'function' && doRename) ? episodeRenameCallback(ep) : epName;
         const skipEp = epFormattedName === false;
         const epPath = `${downloadLocation}/${epFormattedName}.mp3`;
 
@@ -74,7 +72,6 @@ const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenam
             await download(epUrl, epPath);
             console.log('Done!\n');
         }
-        return;
     }
 }
 
@@ -128,6 +125,24 @@ const download = (url, path) => {
 
 const removeRssFile = () => {
     fs.unlinkSync('.newestRss.xml');
+}
+
+const loadSettings = () => {
+    rssUrl = myArgs[0];
+    if(myArgs[1]){
+        downloadLocation = myArgs[1];
+        console.log('you can also add a second parameter to set the download location!');
+    }
+
+    if(!rssUrl){
+        console.log('Please provide a RSS url in the first param and optionally a download path in the second param');
+        return;
+    }
+
+    if(fs.existsSync('./config.js')){
+        config = {...config, ...require('./config.js')}
+        console.log(config);
+    }
 }
 
 main();
