@@ -1,5 +1,4 @@
 # rssPodcastDownloader
-I wrote this just to download all of the MBMBAM episodes. I'll probably adapt it in the future to look directly at rss feeds. But for now you have to add a json file with all of the desired episodes
 This hasn't been tested all too much but it works for me.
 
 This is meant to be run as a command, but feel free to update the code. 
