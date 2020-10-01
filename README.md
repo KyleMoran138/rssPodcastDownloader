@@ -11,7 +11,7 @@ To get running in the terminal:
 4. Run the command `node index.js`
 
 To get running in Docker:
-~Coming soon~
+_Coming soon_
 
 ## Config.js
 Here's the general layout of a config.js file
