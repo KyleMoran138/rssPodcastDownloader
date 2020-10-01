@@ -1,4 +1,5 @@
 module.exports = {
+    // cronPattern: '*/30 * * * * *',
     rssEntry: [
         // {
         //     url: 'https://feeds.simplecast.com/wjQvYtdl',
@@ -14,7 +15,7 @@ module.exports = {
         {
             url: 'https://feeds.simplecast.com/cYQVc__c',
             doRename: true,
-            skipAll: true,
+            skipAll: false,
             renameMethod: (ep)=> {
                 const epName = ep.title[0];
                 const epNumber = ep['itunes:episode'] ? ep['itunes:episode'][0] : 'NA';

@@ -1,15 +1,16 @@
 const fs = require('fs');
 const request = require('request');
 const xml2js = require('xml2js');
+const CronJob = require('cron').CronJob;
 
 var config = {
     rssEntry: [],
-    downloadLocation: './downloads'
+    downloadLocation: './downloads',
+    cronPattern: false,
 };
 
-const main = async () => {
-    loadSettings();
-    
+// Podcast data processing
+const getAllPodcasts = async () => {
     if(config.rssEntry.length === 0) {
         console.log('No rss feeds configured in the config file...');
         return;
@@ -31,7 +32,6 @@ const main = async () => {
     }
 }
 
-// Podcast data processing
 const getPodcast = async (data, renameMethod, doRename, skipAll) => {
     return new Promise((res, rej) => {
         const channel = addChannelHelperMethodsToObject(data);
@@ -141,8 +141,31 @@ const removeRssFile = () => {
 const loadSettings = () => {
     if(fs.existsSync('./config.js')){
         config = {...config, ...require('./config.js')}
-        console.log(config);
     }
 }
 
-main();
+async function onCronComplete(){
+    this.currentlyRunning = false;
+    console.log('Downloads completed');
+}
+
+async function onCronTick(onComplete){
+    if(this.currentlyRunning){
+        console.log('Last process still running, skipping start');
+        return;
+    }
+    console.log('Starting downloads');
+    this.currentlyRunning = true;
+    await getAllPodcasts();
+    onComplete();
+}
+
+loadSettings();
+
+if(config.cronPattern){
+    console.log('Starting cron!');
+    let job = new CronJob(config.cronPattern, onCronTick, onCronComplete);
+    job.start();
+}else{
+    getAllPodcasts();
+}
