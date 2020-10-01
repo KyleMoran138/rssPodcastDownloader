@@ -1,32 +1,43 @@
 const fs = require('fs');
 const request = require('request');
 const xml2js = require('xml2js');
-var rssUrl = '';
-var downloadLocation = './downloads'
-var myArgs = process.argv.slice(2);
-var config = {};
+const CronJob = require('cron').CronJob;
 
-const main = async () => {
-    loadSettings();
-    try{
-        console.log('Fetching latest Rss...');
-        await downloadLatestRss();
-        console.log('Done');
-        const data = await parseXmlIntoObject();
-        await getPodcast(data);
-        removeRssFile();
-    }catch(err){
-        console.error('There was an error', err);
+var config = {
+    rssEntry: [],
+    downloadLocation: './downloads',
+    cronPattern: false,
+};
+
+// Podcast data processing
+const getAllPodcasts = async () => {
+    if(config.rssEntry.length === 0) {
+        console.log('No rss feeds configured in the config file...');
+        return;
+    
+    }
+
+    for(let i = 0; i < config.rssEntry.length; i++){
+        const rssEntry = config.rssEntry[i];
+        try{
+            console.log('Fetching latest Rss...');
+            await downloadLatestRss(rssEntry.url);
+            console.log('Done');
+            const data = await parseXmlIntoObject();
+            await getPodcast(data, rssEntry.renameMethod, rssEntry.doRename, rssEntry.skipAll);
+            removeRssFile();
+        }catch(err){
+            console.error('There was an error', err);
+        }
     }
 }
 
-// Podcast data processing
-const getPodcast = async (data) => {
+const getPodcast = async (data, renameMethod, doRename, skipAll) => {
     return new Promise((res, rej) => {
         const channel = addChannelHelperMethodsToObject(data);
         const folderPath = createPodcastFolder(channel);
         console.log(`Downloading "${channel.getName()}" to "${folderPath}"`);
-        downloadAllEpisodes(folderPath, channel.item, config.renameMethod, config.doRename);
+        downloadAllEpisodes(folderPath, channel.item, renameMethod, doRename, skipAll);
         res();
     });
 }
@@ -34,7 +45,7 @@ const getPodcast = async (data) => {
 const createPodcastFolder = (channelObject) => {
     const channelName = channelObject.getName();
     const channelAuthorName = channelObject.getAuthor();
-    const podcastFolderPath = `${downloadLocation}/${channelAuthorName}/${channelName}`;
+    const podcastFolderPath = `${config.downloadLocation}/${channelAuthorName}/${channelName}`;
     if(!fs.existsSync(channelName)){
         fs.mkdirSync(podcastFolderPath, {recursive: true});
     }
@@ -52,7 +63,7 @@ const addChannelHelperMethodsToObject = (obj) => {
     return returnObj;
 }
 
-const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenameCallback, doRename=true) => {
+const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenameCallback, doRename=true, skipAll=false) => {
     for(let i = 0; i < episodesArray.length; i -=- 1){
         const ep = episodesArray[i];
         const epEnclosure = ep.enclosure[0];
@@ -65,7 +76,7 @@ const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenam
 
         if(fs.existsSync(epPath)){
             console.log(`Episode: ${epNumber} is already at the path`);
-        }else if(skipEp){
+        }else if(skipEp || skipAll){
             console.log(`Skipping: ${epNumber}`);
         }else{
             console.log(`Downloading episode ${epFormattedName}`);
@@ -76,7 +87,7 @@ const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenam
 }
 
 // File work? 
-const downloadLatestRss = async () => {
+const downloadLatestRss = async (rssUrl) => {
     return new Promise(async (resolve, reject) => {
 
         if(fs.existsSync('.newestRss.xml')){
@@ -128,21 +139,33 @@ const removeRssFile = () => {
 }
 
 const loadSettings = () => {
-    rssUrl = myArgs[0];
-    if(myArgs[1]){
-        downloadLocation = myArgs[1];
-        console.log('you can also add a second parameter to set the download location!');
-    }
-
-    if(!rssUrl){
-        console.log('Please provide a RSS url in the first param and optionally a download path in the second param');
-        return;
-    }
-
     if(fs.existsSync('./config.js')){
         config = {...config, ...require('./config.js')}
-        console.log(config);
     }
 }
 
-main();
+async function onCronComplete(){
+    this.currentlyRunning = false;
+    console.log('Downloads completed');
+}
+
+async function onCronTick(onComplete){
+    if(this.currentlyRunning){
+        console.log('Last process still running, skipping start');
+        return;
+    }
+    console.log('Starting downloads');
+    this.currentlyRunning = true;
+    await getAllPodcasts();
+    onComplete();
+}
+
+loadSettings();
+
+if(config.cronPattern){
+    console.log('Starting cron!');
+    let job = new CronJob(config.cronPattern, onCronTick, onCronComplete);
+    job.start();
+}else{
+    getAllPodcasts();
+}
