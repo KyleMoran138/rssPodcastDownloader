@@ -11,7 +11,9 @@ To get running in the terminal:
 4. Run the command `node index.js`
 
 To get running in Docker:
-_Coming soon_
+1. docker run -d --volume <path-to-config.js>:/downloader/config.js --volume <download-directory>:/downloader/downloads kmoran138/rss-podcast-downloader:latest
+  
+docker-compose.yml: _coming soon_
 
 ## Config.js
 Here's the general layout of a config.js file
