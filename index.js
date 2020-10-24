@@ -72,14 +72,15 @@ const downloadAllEpisodes = async (downloadLocation, episodesArray, episodeRenam
         const epNumber = ep['itunes:episode'] ? ep['itunes:episode'][0] : -1;
         const epFormattedName = (typeof episodeRenameCallback === 'function' && doRename) ? episodeRenameCallback(ep) : epName;
         const skipEp = epFormattedName === false;
-        const epPath = `${downloadLocation}/${epFormattedName}.mp3`;
+        const epFormattedNameEsc = epFormattedName.replace(/[/]/g, "-");
+        const epPath = `${downloadLocation}/${epFormattedNameEsc}.mp3`;
 
         if(fs.existsSync(epPath)){
             console.log(`Episode: ${epNumber} is already at the path`);
         }else if(skipEp || skipAll){
             console.log(`Skipping: ${epNumber}`);
         }else{
-            console.log(`Downloading episode ${epFormattedName}`);
+            console.log(`Downloading episode ${epFormattedNameEsc}`);
             await download(epUrl, epPath);
             console.log('Done!\n');
         }
